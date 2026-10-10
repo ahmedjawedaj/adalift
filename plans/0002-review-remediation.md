@@ -6,6 +6,11 @@ The starting point is the audited local source snapshot, preserved in Git before
 changes. The unavailable RC1 ZIP is not reconstructed or claimed as this source.
 This work produces RC2 from a new commit and tag.
 
+Hosted CI discovered that the starting ignore rule `data/` also excluded the
+package's `src/adalift/data` files from the first commit. The original audit
+manifest preserves their starting contents. RC2 anchors `/data/` and explicitly
+includes the package source; its Git archive is the review subject.
+
 ## Invariants and compatibility
 
 - Adaptive predictions always use an s=1 core pass; max_loops is a hard upper

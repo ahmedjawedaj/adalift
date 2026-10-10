@@ -33,6 +33,24 @@ def main() -> None:
     parser.add_argument("--artifacts", type=Path, help="copy verified wheel/sdist here on success")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
+    if (root / ".git").exists():
+        tracked = set(
+            subprocess.run(
+                ["git", "ls-files", "src/adalift"],
+                cwd=root,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.splitlines()
+        )
+        source_files = {
+            str(path.relative_to(root))
+            for path in (root / "src/adalift").rglob("*")
+            if path.is_file() and (path.suffix == ".py" or path.name == "py.typed")
+        }
+        missing = sorted(source_files - tracked)
+        if missing:
+            raise RuntimeError(f"package source missing from Git: {missing}")
     with tempfile.TemporaryDirectory(prefix="adalift-dist-") as temporary:
         workspace = Path(temporary)
         dist = workspace / "dist"

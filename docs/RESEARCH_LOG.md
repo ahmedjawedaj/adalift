@@ -18,3 +18,6 @@ Use dated entries. Record failed hypotheses as carefully as successful ones.
 - Verified Appendix D: B/2-R2 is published; EMA is 0.999; documented paper settings.
 - Added real config smoke execution, distribution checks, pinned CI dependencies and Actions.
 - Evidence remains synthetic implementation verification. No metric reproduction or adaptive advantage.
+- Hosted CI caught an inherited Git ignore error: `data/` omitted the package's
+  synthetic-data source from the initial commit. Anchored `/data/`, restored both
+  source files to Git, and checked the release from a fresh Git snapshot.

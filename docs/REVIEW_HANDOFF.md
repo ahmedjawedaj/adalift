@@ -3,9 +3,14 @@
 ## Artifact and scope
 
 Repository: https://github.com/ahmedjawedaj/adalift (private during review).
-Version: 0.1.0rc2. Starting audited snapshot:
+Version: 0.1.0rc2. Initial Git baseline:
 `f80ca7328b8f28bd177142f5d71728a841bd22c4`.
 RC2 is a remediation of that snapshot, not a recovered or verified RC1 ZIP.
+The audited working tree had 83 files. The first Git baseline contained only
+81: its inherited unanchored `data/` ignore rule omitted the two files in
+`src/adalift/data`. Hosted CI exposed the omission. RC2 anchors `/data/` to the
+repository root and includes both package files. The original audit manifest
+in the review bundle preserves the full starting working-tree identity.
 Review the candidate tag, archive hash and diff from the starting commit.
 The sibling `adalift-review-rc2` bundle records final commit/hash and check logs.
 
@@ -13,7 +18,7 @@ The sibling `adalift-review-rc2` bundle records final commit/hash and check logs
 
 | Finding | Remediation / reviewer focus |
 |---|---|
-| C-1 identity | Starting source committed; candidate tagged; ZIP generated from Git, with hashes. |
+| C-1 identity | Git baseline plus original 83-file audit manifest; corrected ignored package files; candidate tagged and ZIP generated from Git, with hashes. |
 | H-1 endpoint | Early exits run a final core pass at s=1. Budget exhaustion already ends at s=1. |
 | H-2 compute | Gather/scatter live rows; counts include endpoint calls and match executed row counts. |
 | H-3 checkpoint | weights_only=True; no fallback; plain metadata; rejected-global regression. |
