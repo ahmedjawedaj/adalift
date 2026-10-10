@@ -1,0 +1,24 @@
+# Planned faithful-scale configuration. Do not call results from this config reproduced
+# until the paper's exact width/head/core allocation and training data pipeline are verified.
+model:
+  in_channels: 4
+  input_size: 32
+  patch_size: 2
+  hidden_size: 768
+  prelude_depth: 4
+  recurrent_depth: 2
+  num_heads: 12
+  mlp_ratio: 4.0
+  num_classes: 1000
+  qk_norm: true
+
+training:
+  k_train: 4
+  prelude_loss_weight: 0.01
+  learning_rate: 0.0001
+  ema_decay: 0.9999
+  seed: 42
+
+sampling:
+  num_steps: 50
+  num_loops: 4

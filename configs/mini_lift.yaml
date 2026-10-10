@@ -1,0 +1,24 @@
+model:
+  in_channels: 4
+  input_size: 16
+  patch_size: 2
+  hidden_size: 128
+  depth: 6
+  prelude_depth: 2
+  recurrent_depth: 2
+  num_heads: 4
+  mlp_ratio: 4.0
+  num_classes: 10
+  qk_norm: true
+
+training:
+  k_train: 2
+  prelude_loss_weight: 0.01
+  learning_rate: 0.0002
+  weight_decay: 0.0
+  ema_decay: 0.999
+  seed: 42
+
+sampling:
+  num_steps: 25
+  num_loops: 4

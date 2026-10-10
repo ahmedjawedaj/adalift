@@ -1,0 +1,29 @@
+name: Research proposal
+description: Propose an experiment, ablation, or scientific extension.
+title: "[research] "
+body:
+  - type: textarea
+    id: hypothesis
+    attributes:
+      label: Hypothesis
+      description: State a falsifiable hypothesis.
+    validations:
+      required: true
+  - type: textarea
+    id: baseline
+    attributes:
+      label: Matched baseline and budget
+    validations:
+      required: true
+  - type: textarea
+    id: experiment
+    attributes:
+      label: Experiment design
+    validations:
+      required: true
+  - type: textarea
+    id: success
+    attributes:
+      label: Success and stop criteria
+    validations:
+      required: true

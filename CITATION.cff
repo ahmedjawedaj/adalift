@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: "If you use AdaLiFT in academic work, please cite this software and the original LiFT paper."
+title: "AdaLiFT: Adaptive recurrent depth for flow transformers"
+type: software
+authors:
+  - name: "AdaLiFT Contributors"
+version: 0.1.0
+date-released: 2026-10-08
+license: Apache-2.0
+repository-code: "https://github.com/OWNER/adalift"
+references:
+  - type: article
+    title: "LiFT: Loop Flow Transformers"
+    authors:
+      - family-names: "Derakhshani"
+        given-names: "Mohammad Mahdi"
+    year: 2026
+    url: "https://arxiv.org/abs/2610.05538"
