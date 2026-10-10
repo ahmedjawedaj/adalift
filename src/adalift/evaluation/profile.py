@@ -13,5 +13,7 @@ class ModelProfile:
 
 def profile_parameters(model: nn.Module) -> ModelProfile:
     total = sum(parameter.numel() for parameter in model.parameters())
-    trainable = sum(parameter.numel() for parameter in model.parameters() if parameter.requires_grad)
+    trainable = sum(
+        parameter.numel() for parameter in model.parameters() if parameter.requires_grad
+    )
     return ModelProfile(total, trainable)

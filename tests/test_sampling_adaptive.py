@@ -55,4 +55,4 @@ def test_adaptive_sampler_returns_trace() -> None:
     )
     assert out.shape == (2, 4, 8, 8)
     assert trace.shape == (2, 2)
-    assert torch.all(trace == 1)
+    assert torch.all(trace == 2)

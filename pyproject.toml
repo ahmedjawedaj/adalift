@@ -1,31 +1,28 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77.0.3,<85"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "adalift"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Clean-room research implementation of Loop Flow Transformers with adaptive recurrent-depth extensions."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { file = "LICENSE" }
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [{ name = "AdaLiFT Contributors" }]
 keywords = ["flow-matching", "diffusion-transformer", "recurrent-depth", "generative-models", "pytorch"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Science/Research",
-  "License :: OSI Approved :: Apache Software License",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-  "torch>=2.4",
-  "numpy>=1.26",
+  "torch>=2.13",
   "PyYAML>=6.0",
-  "safetensors>=0.4",
-  "tqdm>=4.66",
 ]
 
 [project.optional-dependencies]
@@ -33,17 +30,29 @@ vision = ["torchvision>=0.19", "pillow>=10.0"]
 metrics = ["torchmetrics[image]>=1.4", "scipy>=1.12"]
 wandb = ["wandb>=0.18"]
 dev = [
-  "pytest>=8.3",
-  "pytest-cov>=5.0",
-  "ruff>=0.8",
-  "mypy>=1.13",
-  "pre-commit>=4.0",
+  "pytest==9.1.1",
+  "pytest-cov==6.0.0",
+  "ruff==0.8.6",
+  "mypy==1.13.0",
+  "pre-commit==4.0.1",
+  "types-PyYAML==6.0.12.20260906",
+  "build==1.2.2.post1",
+  "twine==6.1.0",
 ]
 
 [project.urls]
-Homepage = "https://github.com/OWNER/adalift"
-Repository = "https://github.com/OWNER/adalift"
-Issues = "https://github.com/OWNER/adalift/issues"
+Homepage = "https://github.com/ahmedjawedaj/adalift"
+Repository = "https://github.com/ahmedjawedaj/adalift"
+Issues = "https://github.com/ahmedjawedaj/adalift/issues"
+
+[project.scripts]
+adalift-smoke = "adalift.training.smoke:main"
+
+[tool.setuptools.dynamic]
+version = {attr = "adalift.__version__"}
+
+[tool.setuptools.package-data]
+adalift = ["py.typed"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

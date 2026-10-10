@@ -13,7 +13,7 @@
 - [x] CPU smoke test and unit suite
 - [ ] verify architecture hyperparameters line-by-line against official code when released
 
-## Milestone G1 — Mini-LiFT falsification
+## Milestone G1 — Mini-LiFT diagnostic
 
 - [ ] choose CIFAR latent or ImageNet-64 benchmark
 - [ ] deterministic train/eval pipeline
@@ -21,6 +21,9 @@
 - [ ] `K_train=2`, evaluate `K_inf={1,2,4,8,16}`
 - [ ] >= 3 seeds
 - [ ] publish curves and failure analysis
+
+Tiny-model depth extrapolation is a diagnostic; assess capable paper-scale
+configurations before rejecting the scale-related hypothesis.
 
 ## Milestone G2 — Faithful ImageNet reproduction
 
@@ -35,6 +38,7 @@
 ## Milestone G3 — AdaLiFT
 
 - [x] residual-based early exit baseline
+- [x] endpoint pass, active-row compaction, actual core-evaluation accounting
 - [ ] timestep-specific residual thresholds
 - [ ] learned halting head
 - [ ] compute-regularized halting objective

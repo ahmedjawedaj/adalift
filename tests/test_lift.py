@@ -62,4 +62,4 @@ def test_adaptive_forward_returns_loop_counts() -> None:
     result = model.forward_adaptive(x, t, y, max_loops=4, min_loops=1, residual_threshold=1e9)
     assert result.prediction.shape == x.shape
     assert result.loops_used.shape == (2,)
-    assert torch.equal(result.loops_used, torch.ones_like(result.loops_used))
+    assert torch.equal(result.loops_used, torch.full_like(result.loops_used, 2))

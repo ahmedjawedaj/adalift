@@ -1,0 +1,18 @@
+include AGENTS.md CLAUDE.md CITATION.cff CHANGELOG.md SECURITY.md
+include CONTRIBUTING.md GOVERNANCE.md CODE_OF_CONDUCT.md Makefile
+include .editorconfig .gitignore .pre-commit-config.yaml
+include requirements-ci.txt
+recursive-include src *.py py.typed
+recursive-include tests *.py
+recursive-include docs *.md
+recursive-include configs *.yaml
+recursive-include scripts *.py
+recursive-include examples *.py
+recursive-include experiments *.md
+recursive-include plans *.md
+recursive-include .agent *.md
+recursive-include .agents *.md
+recursive-include .claude *.md
+recursive-include .github *.yml *.yaml *.md
+exclude .DS_Store
+global-exclude __pycache__ *.py[cod]

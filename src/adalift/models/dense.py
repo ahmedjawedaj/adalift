@@ -5,7 +5,12 @@ from torch import nn
 
 from adalift.config import ModelConfig
 from adalift.models.blocks import DiTBlock, FinalLayer
-from adalift.models.embeddings import LabelEmbedding, PatchEmbed2d, ScalarConditionEmbedding
+from adalift.models.embeddings import (
+    LabelEmbedding,
+    PatchEmbed2d,
+    ScalarConditionEmbedding,
+    validate_condition_inputs,
+)
 
 
 class DenseDiT(nn.Module):
@@ -50,12 +55,16 @@ class DenseDiT(nn.Module):
 
         self.apply(init)
         for block in self.blocks:
+            assert isinstance(block, DiTBlock)
             block._reset_parameters()
         self.head._reset_parameters()
 
     def forward(self, x: torch.Tensor, t: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+        validate_condition_inputs(x, t, y, self.config.num_classes)
         condition = self.time_embed(t) + self.label_embed(y)
         h, grid = self.patch_embed(x)
         for block in self.blocks:
+            assert isinstance(block, DiTBlock)
             h = block(h, condition, grid)
-        return self.head(h, condition, grid)
+        result: torch.Tensor = self.head(h, condition, grid)
+        return result

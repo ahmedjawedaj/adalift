@@ -34,9 +34,17 @@ def test_rope_error_paths() -> None:
 def test_lift_input_validation() -> None:
     model = LiFT(
         ModelConfig(
-            in_channels=4, input_size=8, patch_size=2, hidden_size=64,
-            depth=4, prelude_depth=1, recurrent_depth=1, num_heads=4,
-            num_classes=3, depth_embed_freq_dim=32, time_embed_freq_dim=32,
+            in_channels=4,
+            input_size=8,
+            patch_size=2,
+            hidden_size=64,
+            depth=4,
+            prelude_depth=1,
+            recurrent_depth=1,
+            num_heads=4,
+            num_classes=3,
+            depth_embed_freq_dim=32,
+            time_embed_freq_dim=32,
         )
     )
     x = torch.randn(1, 4, 8, 8)

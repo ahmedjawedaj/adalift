@@ -24,6 +24,25 @@ A shared recurrent DiT core can support adjustable inference-time depth when int
 - Recurrent prediction `u_k` regresses to `(1-s_k) * stopgrad(u0) + s_k * u*`.
 - Auxiliary prelude regression weight defaults to `0.01` in the paper's main experiments.
 
+## Verified appendix settings
+
+Source: [LiFT v1 Appendix D](https://arxiv.org/html/2610.05538#A4), Tables 14-16
+and Section D.3, checked 2026-10-11.
+
+- B/2 width 768, 12 heads, patch size 2, four prelude blocks.
+- B/2-R2 is listed in Table 15 with two core blocks and `K_train=4`.
+- AdamW: LR `1e-4`, betas `(0.9, 0.999)`, epsilon `1e-8`, weight decay `0`.
+- 500 warmup updates then constant LR; 500,000 updates, global batch 256.
+- Global gradient norm clip 1; EMA decay **0.999**; seed 42; no label dropout.
+- BF16 computation with FP32 parameters and loss accumulation.
+- Interior depth draws/sort in FP64, epsilon spacing `1e-6`, output FP32.
+- Evaluation: EMA, Euler, no classifier-free guidance, paired noise and labels.
+
+The candidate YAML records verified B/2-R2 architecture/training settings.
+Matching those values is not a reproduction claim.
+
 ## Items deliberately not overclaimed yet
 
-The current repo has not yet locked exact SpeedrunDiT implementation details, full B/L/XL model registries, ImageNet latent preprocessing, analytic FLOP parity, or paper-exact optimizer/runtime settings beyond the published high-level values. These belong to G1/G2 and must be verified against the paper appendix and official code when available.
+Exact SpeedrunDiT implementation parity, full model registries, ImageNet cached
+latent preprocessing, BF16/distributed paper training, evaluator integration and
+analytic FLOP parity remain unverified or unimplemented. These belong to G1/G2.

@@ -16,14 +16,29 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.11", "3.12"]
+        torch-version: ["locked"]
+        include:
+          - python-version: "3.11"
+            torch-version: "2.13.0"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
+          cache-dependency-path: requirements-ci.txt
+      - name: Install CPU PyTorch
+        if: matrix.torch-version == 'locked'
+        run: python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch==2.14.1"
+      - name: Install minimum CPU PyTorch
+        if: matrix.torch-version != 'locked'
+        run: python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch==${{ matrix.torch-version }}"
       - name: Install
-        run: python -m pip install -e ".[dev]"
+        if: matrix.torch-version == 'locked'
+        run: python -m pip install -c requirements-ci.txt -e ".[dev]"
+      - name: Install minimum supported PyTorch
+        if: matrix.torch-version != 'locked'
+        run: python -m pip install -e ".[dev]" "torch==${{ matrix.torch-version }}"
       - name: Skill sync
         run: python scripts/sync_agent_skills.py --check
       - name: Ruff
@@ -34,3 +49,8 @@ jobs:
         run: mypy src/adalift
       - name: Tests
         run: pytest --cov=adalift --cov-report=term-missing
+      - name: CPU smoke with config
+        run: adalift-smoke --config configs/mini_lift.yaml --steps 3 --batch-size 2
+      - name: Installed distributions
+        if: matrix.torch-version == 'locked'
+        run: python scripts/verify_distribution.py

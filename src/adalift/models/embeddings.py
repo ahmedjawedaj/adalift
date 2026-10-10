@@ -6,7 +6,30 @@ import torch
 from torch import nn
 
 
-def sinusoidal_embedding(values: torch.Tensor, dim: int, max_period: float = 10_000.0) -> torch.Tensor:
+def validate_condition_inputs(
+    x: torch.Tensor, t: torch.Tensor, labels: torch.Tensor, num_classes: int
+) -> None:
+    if x.ndim != 4 or x.shape[0] < 1 or not x.is_floating_point():
+        raise ValueError(
+            "x must be a nonempty floating-point [batch, channels, height, width] tensor"
+        )
+    if t.shape != (x.shape[0],) or labels.shape != (x.shape[0],):
+        raise ValueError("t and labels must have shape [batch]; broadcasting is not supported")
+    if t.device != x.device or labels.device != x.device:
+        raise ValueError("x, t and labels must share a device")
+    if not t.is_floating_point() or not bool(torch.isfinite(t).all()):
+        raise ValueError("t must be finite floating-point values")
+    if not bool(((t >= 0) & (t <= 1)).all()):
+        raise ValueError("t must be in [0, 1]")
+    if labels.dtype not in (torch.int32, torch.int64):
+        raise ValueError("labels must be integer class indices")
+    if not bool(((labels >= 0) & (labels < num_classes)).all()):
+        raise ValueError("labels must be in [0, num_classes)")
+
+
+def sinusoidal_embedding(
+    values: torch.Tensor, dim: int, max_period: float = 10_000.0
+) -> torch.Tensor:
     """Embed scalar values with sinusoidal features.
 
     Args:
@@ -43,7 +66,10 @@ class ScalarConditionEmbedding(nn.Module):
 
     def forward(self, value: torch.Tensor) -> torch.Tensor:
         emb = sinusoidal_embedding(value, self.frequency_dim)
-        return self.mlp(emb.to(dtype=self.mlp[0].weight.dtype))
+        first_layer = self.mlp[0]
+        assert isinstance(first_layer, nn.Linear)
+        result: torch.Tensor = self.mlp(emb.to(dtype=first_layer.weight.dtype))
+        return result
 
 
 class LabelEmbedding(nn.Module):
@@ -55,14 +81,21 @@ class LabelEmbedding(nn.Module):
         self.embedding = nn.Embedding(num_classes + extra, hidden_size)
         self.null_label = num_classes if extra else None
 
-    def forward(self, labels: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, labels: torch.Tensor, *, generator: torch.Generator | None = None
+    ) -> torch.Tensor:
         if labels.ndim != 1:
             raise ValueError("labels must have shape [batch]")
         labels = labels.long()
         if self.training and self.dropout_prob > 0:
-            mask = torch.rand(labels.shape, device=labels.device) < self.dropout_prob
+            assert self.null_label is not None
+            mask = (
+                torch.rand(labels.shape, device=labels.device, generator=generator)
+                < self.dropout_prob
+            )
             labels = torch.where(mask, torch.full_like(labels, self.null_label), labels)
-        return self.embedding(labels)
+        result: torch.Tensor = self.embedding(labels)
+        return result
 
 
 class PatchEmbed2d(nn.Module):
@@ -80,6 +113,8 @@ class PatchEmbed2d(nn.Module):
     def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, tuple[int, int]]:
         if x.ndim != 4:
             raise ValueError("x must have shape [batch, channels, height, width]")
+        if x.shape[-2] % self.patch_size or x.shape[-1] % self.patch_size:
+            raise ValueError("spatial dimensions must be divisible by patch_size")
         h = self.proj(x)
         grid = (h.shape[-2], h.shape[-1])
         tokens = h.flatten(2).transpose(1, 2)

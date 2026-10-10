@@ -43,7 +43,8 @@ class SelfAttention(nn.Module):
         q, k = apply_2d_rope(q, k, grid_size, self.rope_theta)
         out = F.scaled_dot_product_attention(q, k, v, dropout_p=0.0)
         out = out.transpose(1, 2).reshape(bsz, tokens, hidden)
-        return self.proj(out)
+        result: torch.Tensor = self.proj(out)
+        return result
 
 
 class DiTBlock(nn.Module):
@@ -77,8 +78,10 @@ class DiTBlock(nn.Module):
         self._reset_parameters()
 
     def _reset_parameters(self) -> None:
-        nn.init.zeros_(self.ada[-1].weight)
-        nn.init.zeros_(self.ada[-1].bias)
+        layer = self.ada[-1]
+        assert isinstance(layer, nn.Linear)
+        nn.init.zeros_(layer.weight)
+        nn.init.zeros_(layer.bias)
 
     def forward(
         self,
@@ -87,9 +90,7 @@ class DiTBlock(nn.Module):
         grid_size: tuple[int, int],
     ) -> torch.Tensor:
         shift_a, scale_a, gate_a, shift_m, scale_m, gate_m = self.ada(condition).chunk(6, dim=-1)
-        x = x + gate_a[:, None] * self.attn(
-            modulate(self.norm1(x), shift_a, scale_a), grid_size
-        )
+        x = x + gate_a[:, None] * self.attn(modulate(self.norm1(x), shift_a, scale_a), grid_size)
         x = x + gate_m[:, None] * self.mlp(modulate(self.norm2(x), shift_m, scale_m))
         return x
 
@@ -105,8 +106,10 @@ class FinalLayer(nn.Module):
         self._reset_parameters()
 
     def _reset_parameters(self) -> None:
-        nn.init.zeros_(self.ada[-1].weight)
-        nn.init.zeros_(self.ada[-1].bias)
+        layer = self.ada[-1]
+        assert isinstance(layer, nn.Linear)
+        nn.init.zeros_(layer.weight)
+        nn.init.zeros_(layer.bias)
         nn.init.zeros_(self.proj.weight)
         nn.init.zeros_(self.proj.bias)
 

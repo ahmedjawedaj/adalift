@@ -13,7 +13,7 @@ def _rotate_pairs(x: torch.Tensor, angles: torch.Tensor) -> torch.Tensor:
     sin = angles.sin()[None, None]
     out0 = x0 * cos - x1 * sin
     out1 = x0 * sin + x1 * cos
-    return torch.stack([out0, out1], dim=-1).flatten(-2)
+    return torch.stack([out0, out1], dim=-1).flatten(-2).to(dtype=x.dtype)
 
 
 def build_2d_rope_angles(
@@ -63,9 +63,7 @@ def apply_2d_rope(
         raise ValueError("token count does not match grid_size")
 
     axis_dim = head_dim // 2
-    row_angles, col_angles = build_2d_rope_angles(
-        grid_size, axis_dim, device=q.device, theta=theta
-    )
+    row_angles, col_angles = build_2d_rope_angles(grid_size, axis_dim, device=q.device, theta=theta)
     q_row, q_col = q.split(axis_dim, dim=-1)
     k_row, k_col = k.split(axis_dim, dim=-1)
     return (

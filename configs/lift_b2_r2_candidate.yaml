@@ -1,5 +1,5 @@
-# Planned faithful-scale configuration. Do not call results from this config reproduced
-# until the paper's exact width/head/core allocation and training data pipeline are verified.
+# Paper Appendix D, Tables 14-16: B/2 R2, K_train=4.
+# Architecture/training candidate; no ImageNet metric reproduction is claimed.
 model:
   in_channels: 4
   input_size: 32
@@ -16,8 +16,13 @@ training:
   k_train: 4
   prelude_loss_weight: 0.01
   learning_rate: 0.0001
-  ema_decay: 0.9999
+  ema_decay: 0.999
   seed: 42
+  warmup_steps: 500
+  adam_betas: [0.9, 0.999]
+  adam_eps: 0.00000001
+  weight_decay: 0.0
+  grad_clip_norm: 1.0
 
 sampling:
   num_steps: 50

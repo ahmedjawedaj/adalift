@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import isfinite
 
 import torch
 import torch.nn.functional as F
@@ -26,19 +27,23 @@ def sample_depth_coordinates(
     generator: torch.Generator | None = None,
 ) -> torch.Tensor:
     """Sample sorted random interior coordinates and append the endpoint ``s=1``."""
-    if k_train < 1:
-        raise ValueError("k_train must be >= 1")
+    if batch_size < 1 or not 1 <= k_train < 1_000_000:
+        raise ValueError("batch_size must be positive and require 1 <= k_train < 1000000")
+    if dtype != torch.float32:
+        raise ValueError("training depth coordinates require float32 output precision")
     if k_train == 1:
         return torch.ones(batch_size, 1, device=device, dtype=dtype)
     interior = torch.rand(
         batch_size,
         k_train - 1,
         device=device,
-        dtype=dtype,
+        dtype=torch.float64,
         generator=generator,
     )
     interior, _ = interior.sort(dim=1)
-    return torch.cat([interior, torch.ones(batch_size, 1, device=device, dtype=dtype)], dim=1)
+    offsets = torch.arange(1, k_train, device=device, dtype=torch.float64) * 1e-6
+    interior = ((1 - k_train * 1e-6) * interior + offsets).float()
+    return torch.cat([interior, torch.ones(batch_size, 1, device=device)], dim=1)
 
 
 def build_trajectory_targets(
@@ -66,8 +71,8 @@ def lift_trajectory_loss(
     generator: torch.Generator | None = None,
 ) -> LiFTLossOutput:
     """Compute LiFT flow-matching trajectory supervision for one minibatch."""
-    if prelude_loss_weight < 0:
-        raise ValueError("prelude_loss_weight must be non-negative")
+    if not isfinite(prelude_loss_weight) or prelude_loss_weight < 0:
+        raise ValueError("prelude_loss_weight must be finite and non-negative")
     x0 = torch.randn(x1.shape, device=x1.device, dtype=x1.dtype, generator=generator)
     t = torch.rand(x1.shape[0], device=x1.device, dtype=x1.dtype, generator=generator)
     t_view = t.reshape(x1.shape[0], *([1] * (x1.ndim - 1)))
@@ -77,10 +82,10 @@ def lift_trajectory_loss(
         x1.shape[0],
         k_train,
         device=x1.device,
-        dtype=x1.dtype,
+        dtype=torch.float32,
         generator=generator,
     )
-    trajectory = model.forward_trajectory(xt, t, y, depths)
+    trajectory = model.forward_trajectory(xt, t, y, depths, generator=generator)
     target_stack = build_trajectory_targets(
         trajectory.prelude_prediction,
         flow_target,
@@ -88,8 +93,10 @@ def lift_trajectory_loss(
     )
     prediction_stack = torch.stack(trajectory.predictions, dim=1)
     reduce_dims = tuple(range(2, prediction_stack.ndim))
-    mse_by_depth = (prediction_stack - target_stack).pow(2).mean(dim=reduce_dims)
+    mse_by_depth = (prediction_stack.float() - target_stack.float()).pow(2).mean(dim=reduce_dims)
     trajectory_loss = mse_by_depth.mean()
-    prelude_loss = F.mse_loss(trajectory.prelude_prediction, flow_target)
+    prelude_loss = F.mse_loss(trajectory.prelude_prediction.float(), flow_target.float())
     loss = trajectory_loss + prelude_loss_weight * prelude_loss
-    return LiFTLossOutput(loss, trajectory_loss, prelude_loss, mse_by_depth.detach(), depths.detach())
+    return LiFTLossOutput(
+        loss, trajectory_loss, prelude_loss, mse_by_depth.detach(), depths.detach()
+    )

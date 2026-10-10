@@ -18,6 +18,7 @@ training:
   weight_decay: 0.0
   ema_decay: 0.999
   seed: 42
+  warmup_steps: 0
 
 sampling:
   num_steps: 25

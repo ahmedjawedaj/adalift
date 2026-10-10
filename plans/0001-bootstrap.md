@@ -10,7 +10,9 @@ No ImageNet headline reproduction claim, no pretrained checkpoint, and no claim 
 
 ## Scientific hypothesis
 
-The first falsification target is that a small LiFT trained at limited recurrent depth can benefit from larger inference depth. Adaptive-depth work proceeds only after this behavior is demonstrated.
+Small-model depth extrapolation is a diagnostic. Assess sufficiently capable
+paper-scale configurations before rejecting the hypothesis. Endpoint-preserving
+adaptive inference remains experimental until matched-compute validation.
 
 ## Implementation
 

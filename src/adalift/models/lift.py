@@ -5,9 +5,15 @@ from dataclasses import dataclass
 import torch
 from torch import nn
 
+from adalift.adaptive.policies import ResidualHaltingPolicy
 from adalift.config import ModelConfig
 from adalift.models.blocks import DiTBlock, FinalLayer
-from adalift.models.embeddings import LabelEmbedding, PatchEmbed2d, ScalarConditionEmbedding
+from adalift.models.embeddings import (
+    LabelEmbedding,
+    PatchEmbed2d,
+    ScalarConditionEmbedding,
+    validate_condition_inputs,
+)
 
 
 @dataclass(slots=True)
@@ -22,6 +28,14 @@ class AdaptiveLiFTOutput:
     prediction: torch.Tensor
     loops_used: torch.Tensor
     residuals: list[torch.Tensor]
+
+    @property
+    def total_core_evaluations(self) -> int:
+        return int(self.loops_used.sum().item())
+
+    @property
+    def mean_loops(self) -> float:
+        return float(self.loops_used.float().mean().item())
 
 
 class LiFT(nn.Module):
@@ -45,6 +59,7 @@ class LiFT(nn.Module):
             config.class_dropout_prob,
         )
         self.depth_embed = ScalarConditionEmbedding(config.hidden_size, config.depth_embed_freq_dim)
+
         def make_block() -> DiTBlock:
             return DiTBlock(
                 config.hidden_size,
@@ -55,9 +70,7 @@ class LiFT(nn.Module):
             )
 
         self.prelude = nn.ModuleList([make_block() for _ in range(config.prelude_depth)])
-        self.recurrent_core = nn.ModuleList(
-            [make_block() for _ in range(config.recurrent_depth)]
-        )
+        self.recurrent_core = nn.ModuleList([make_block() for _ in range(config.recurrent_depth)])
         self.boundary_norm = nn.RMSNorm(config.hidden_size, eps=1e-6)
         self.head = FinalLayer(config.hidden_size, config.in_channels, config.patch_size)
         self.initialize_weights()
@@ -76,17 +89,22 @@ class LiFT(nn.Module):
         self.apply(init)
         # Re-zero adaLN gates and final projection after generic initialization.
         for block in [*self.prelude, *self.recurrent_core]:
+            assert isinstance(block, DiTBlock)
             block._reset_parameters()
         self.head._reset_parameters()
 
-    def _condition(self, t: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-        return self.time_embed(t) + self.label_embed(y)
+    def _condition(
+        self, t: torch.Tensor, y: torch.Tensor, generator: torch.Generator | None = None
+    ) -> torch.Tensor:
+        condition: torch.Tensor = self.time_embed(t) + self.label_embed(y, generator=generator)
+        return condition
 
     def encode_prelude(
         self, x: torch.Tensor, condition: torch.Tensor
     ) -> tuple[torch.Tensor, tuple[int, int]]:
         h, grid = self.patch_embed(x)
         for block in self.prelude:
+            assert isinstance(block, DiTBlock)
             h = block(h, condition, grid)
         return h, grid
 
@@ -103,6 +121,7 @@ class LiFT(nn.Module):
         h = self.boundary_norm(h) + h0
         core_condition = condition + self.depth_embed(depth)
         for block in self.recurrent_core:
+            assert isinstance(block, DiTBlock)
             h = block(h, core_condition, grid_size)
         return h
 
@@ -112,12 +131,23 @@ class LiFT(nn.Module):
         t: torch.Tensor,
         y: torch.Tensor,
         depth_coordinates: torch.Tensor,
+        *,
+        generator: torch.Generator | None = None,
     ) -> LiFTTrajectory:
+        validate_condition_inputs(x, t, y, self.config.num_classes)
         if depth_coordinates.ndim != 2:
             raise ValueError("depth_coordinates must have shape [batch, loops]")
         if depth_coordinates.shape[0] != x.shape[0]:
             raise ValueError("depth coordinate batch size mismatch")
-        condition = self._condition(t, y)
+        if depth_coordinates.shape[1] < 1 or depth_coordinates.device != x.device:
+            raise ValueError("depth coordinates must be nonempty and on the input device")
+        if not bool(torch.isfinite(depth_coordinates).all()) or not bool(
+            ((depth_coordinates >= 0) & (depth_coordinates <= 1)).all()
+        ):
+            raise ValueError("depth coordinates must be finite and in [0, 1]")
+        if not bool((depth_coordinates[:, 1:] >= depth_coordinates[:, :-1]).all()):
+            raise ValueError("depth coordinates must be sorted")
+        condition = self._condition(t, y, generator)
         h0, grid = self.encode_prelude(x, condition)
         prelude_prediction = self.head(h0, condition, grid)
         h = h0
@@ -138,12 +168,21 @@ class LiFT(nn.Module):
     ) -> torch.Tensor:
         if num_loops < 1:
             raise ValueError("num_loops must be >= 1")
+        validate_condition_inputs(x, t, y, self.config.num_classes)
         if depth_coordinates is None:
-            depths = torch.arange(1, num_loops + 1, device=x.device, dtype=x.dtype) / num_loops
-            depth_coordinates = depths[None].expand(x.shape[0], -1)
+            condition = self._condition(t, y)
+            h0, grid = self.encode_prelude(x, condition)
+            h = h0
+            for index in range(1, num_loops + 1):
+                depth = torch.full((x.shape[0],), index / num_loops, device=x.device)
+                h = self.recurrent_step(h, h0, condition, depth, grid)
+            result: torch.Tensor = self.head(h, condition, grid)
+            return result
         else:
             if depth_coordinates.shape != (x.shape[0], num_loops):
                 raise ValueError("depth_coordinates shape must be [batch, num_loops]")
+            if not bool((depth_coordinates[:, -1] == 1).all()):
+                raise ValueError("forward requires an s=1 endpoint")
         trajectory = self.forward_trajectory(x, t, y, depth_coordinates)
         return trajectory.predictions[-1]
 
@@ -159,42 +198,54 @@ class LiFT(nn.Module):
         residual_threshold: float = 0.01,
         eps: float = 1e-8,
     ) -> AdaptiveLiFTOutput:
-        """Residual-based per-sample early exit.
+        """Experimental residual halting with an endpoint pass and active compaction.
 
-        This is an AdaLiFT baseline, not a claim from the LiFT paper. The depth coordinate
-        follows the fixed ``max_loops`` grid so exited samples preserve a well-defined
-        computational-depth coordinate.
+        max_loops caps actual core evaluations, including the final s=1 pass.
+        min_loops specifies the first intermediate residual check. Inactive rows
+        are NaN in residuals. Evaluation counts do not measure FLOPs or latency.
         """
-        if not 1 <= min_loops <= max_loops:
-            raise ValueError("require 1 <= min_loops <= max_loops")
+        policy = ResidualHaltingPolicy(residual_threshold, min_loops, max_loops, eps)
+        policy.validate()
+        validate_condition_inputs(x, t, y, self.config.num_classes)
         condition = self._condition(t, y)
         h0, grid = self.encode_prelude(x, condition)
         h = h0
         previous = self.head(h0, condition, grid)
-        prediction = previous
-        active = torch.ones(x.shape[0], dtype=torch.bool, device=x.device)
-        loops_used = torch.full((x.shape[0],), max_loops, dtype=torch.long, device=x.device)
+        prediction = torch.empty_like(previous)
+        active = torch.arange(x.shape[0], device=x.device)
+        loops_used = torch.zeros(x.shape[0], dtype=torch.long, device=x.device)
         residual_history: list[torch.Tensor] = []
 
         for loop_idx in range(1, max_loops + 1):
-            depth = torch.full(
-                (x.shape[0],), loop_idx / max_loops, dtype=x.dtype, device=x.device
-            )
-            candidate_h = self.recurrent_step(h, h0, condition, depth, grid)
-            h = torch.where(active[:, None, None], candidate_h, h)
-            candidate = self.head(h, condition, grid)
-            delta = (candidate - previous).flatten(1).norm(dim=1)
-            base = candidate.flatten(1).norm(dim=1).clamp_min(eps)
-            residual = delta / base
-            residual_history.append(residual)
-            prediction = torch.where(active[:, None, None, None], candidate, prediction)
-
-            if loop_idx >= min_loops:
-                exiting = active & (residual <= residual_threshold)
-                loops_used = torch.where(exiting, torch.full_like(loops_used, loop_idx), loops_used)
-                active = active & ~exiting
-            previous = torch.where(active[:, None, None, None], candidate, previous)
-            if not bool(active.any()):
+            depth = torch.full((active.numel(),), loop_idx / max_loops, device=x.device)
+            candidate_h = self.recurrent_step(h, h0[active], condition[active], depth, grid)
+            loops_used[active] += 1
+            candidate = self.head(candidate_h, condition[active], grid)
+            residual = policy.residual(candidate, previous)
+            recorded = torch.full((x.shape[0],), float("nan"), device=x.device)
+            recorded[active] = residual
+            residual_history.append(recorded)
+            if loop_idx == max_loops:
+                prediction[active] = candidate
                 break
+
+            exiting = policy.should_halt(candidate, previous, loop_idx)
+            if bool(exiting.any()):
+                exited_rows = active[exiting]
+                endpoint_h = self.recurrent_step(
+                    candidate_h[exiting],
+                    h0[exited_rows],
+                    condition[exited_rows],
+                    torch.ones(exited_rows.numel(), device=x.device),
+                    grid,
+                )
+                loops_used[exited_rows] += 1
+                prediction[exited_rows] = self.head(endpoint_h, condition[exited_rows], grid)
+            keep = ~exiting
+            active = active[keep]
+            if active.numel() == 0:
+                break
+            h = candidate_h[keep]
+            previous = candidate[keep]
 
         return AdaptiveLiFTOutput(prediction, loops_used, residual_history)

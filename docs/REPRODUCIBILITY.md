@@ -34,9 +34,31 @@ A paper metric is matched within a predeclared tolerance under materially equiva
 ### Extension validated
 The proposed extension beats predeclared baselines at matched compute/parameters across at least three seeds and includes negative/failure cases.
 
-## First falsification gate
+## Diagnostic and scale gates
 
-Train a small model at `K_train=2`. Evaluate the same checkpoint at `K_inf in {1,2,4,8,16}` using common initial noise and labels. Continue to expensive scaling only if extra recurrent depth is useful beyond the training depth and the result is stable across seeds.
+Train a small model at `K_train=2` and evaluate `K_inf in {1,2,4,8,16}` with
+common initial noise and labels as a diagnostic. A tiny-model failure to
+extrapolate does not reject LiFT or the adaptive hypothesis. Test sufficiently
+capable paper-scale configurations before making a scale-related conclusion.
+Adaptive extensions require at least three seeds, endpoint outputs, and fixed
+baselines at matched measured compute. Do not interpolate a quality curve and
+call it a measured matched-budget baseline.
+
+## Implemented execution and resume scope
+
+`adalift-smoke --config configs/mini_lift.yaml` reads the actual YAML and writes
+a JSON run record with resolved configurations, source identity when available,
+seed, synthetic dataset identity, precision and environment. It is a synthetic
+FP32 smoke runner, including when a paper-scale candidate config is supplied.
+It does not implement ImageNet data, BF16 paper training, distributed execution,
+or FID evaluation. It implements AdamW and linear warmup followed by constant LR.
+
+`save_checkpoint(..., capture_rng=True, generator=...)` records Torch CPU/CUDA,
+Python random, and optional generator state. Pass `restore_rng=True` to restore.
+Requested optimizer/EMA/RNG states must exist. Store model/train config as plain
+metadata. Dataset progress, data-loader generators, NumPy/external RNG state,
+hardware equivalence and deterministic kernels remain caller responsibilities.
+RNG restoration alone does not guarantee exact full training resume.
 
 ## Artifact policy
 

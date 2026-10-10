@@ -4,7 +4,10 @@
 
 AdaLiFT is a clean-room PyTorch research implementation inspired by **LiFT: Loop Flow Transformers** (Derakhshani et al., 2026), plus an extension path for adaptive test-time depth. The project is designed for reproducible research, careful ablations, and community contribution rather than one-off benchmark scripts.
 
-> Status: **research alpha**. The core LiFT trajectory objective, recurrent architecture, Euler flow sampler, residual-based adaptive halting, checkpoint/EMA utilities, tests, CI, and agent workflows are implemented. ImageNet-scale reproduction is intentionally gated behind smaller validation experiments.
+> Status: **research alpha, RC2 for independent review**. Core implementation and
+> synthetic verification are available. No ImageNet metric reproduction or
+> adaptive quality/latency advantage is claimed. RC2 starts from the audited
+> local snapshot; the unavailable RC1 ZIP was never verified.
 
 ## Why this project
 
@@ -18,7 +21,8 @@ LiFT separates generative **time** from recurrent **depth**: a shared DiT core c
 - Random sorted continuous depth coordinates during training.
 - LiFT trajectory targets from a stop-gradient prelude anchor to the flow-matching target.
 - Auxiliary prelude loss.
-- Fixed-depth and residual-adaptive recurrent inference.
+- Fixed-depth inference and endpoint-preserving residual-adaptive inference with active-row compaction.
+- Actual per-sample core-evaluation counts, including endpoint passes.
 - Euler flow sampler.
 - EMA and atomic checkpoint helpers.
 - Smoke-training entry point on deterministic synthetic latent data.
@@ -28,7 +32,7 @@ LiFT separates generative **time** from recurrent **depth**: a shared DiT core c
 ## Research milestones
 
 1. **G0 — implementation correctness:** unit tests + toy convergence.
-2. **G1 — mini-LiFT:** train at `K_train=2`; verify useful inference at `K_inf=4/8/16`.
+2. **G1 — mini-LiFT diagnostic:** inspect `K_inf=4/8/16`; tiny-model failure is not a project rejection gate.
 3. **G2 — faithful reproduction:** latent ImageNet subset, then ImageNet-256.
 4. **G3 — AdaLiFT:** residual and learned halting at matched FLOPs.
 5. **G4 — compute allocation:** optimize flow steps `T` vs recurrent depth `K`.
@@ -44,6 +48,9 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 pytest -q
 python scripts/smoke_train.py --steps 10 --batch-size 4
+adalift-smoke --config configs/mini_lift.yaml --steps 3 --batch-size 2
+make verify
+python scripts/verify_distribution.py
 ```
 
 Minimal model usage:
@@ -73,6 +80,16 @@ velocity = model(x, t, y, num_loops=4)
 print(velocity.shape)
 ```
 
+Adaptive outputs always include a final `s=1` core pass. `max_loops` is the
+hard evaluation budget; `loops_used` includes the endpoint pass. Counts measure
+core evaluations, not FLOPs or wall-clock. Samplers accept common `initial_noise`,
+select evaluation mode temporarily, and restore the caller's module modes.
+See [architecture](docs/ARCHITECTURE.md) for budget and residual semantics.
+
+`configs/lift_b2_r2_candidate.yaml` matches the paper's listed B/2-R2 settings;
+the smoke runner still uses synthetic data. Release review instructions and
+remaining limitations are in [REVIEW_HANDOFF.md](docs/REVIEW_HANDOFF.md).
+
 ## Project design
 
 ```text
@@ -101,6 +118,8 @@ We do not label a result "reproduced" because a loss curve looks plausible. Clai
 This is an independent implementation based on the published paper and public descriptions. It does not copy unreleased author code. When official LiFT code is released, we will add compatibility tests and document behavioral differences rather than silently replacing this implementation.
 
 Paper: <https://arxiv.org/abs/2610.05538>
+
+Related work and provenance limitations: [acknowledgements](docs/ACKNOWLEDGEMENTS.md).
 
 ## Contributing
 
