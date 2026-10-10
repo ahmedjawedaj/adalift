@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import os
 import shutil
 import subprocess
@@ -28,6 +29,9 @@ def run(args: list[str], cwd: Path) -> None:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--artifacts", type=Path, help="copy verified wheel/sdist here on success")
+    args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
     with tempfile.TemporaryDirectory(prefix="adalift-dist-") as temporary:
         workspace = Path(temporary)
@@ -101,6 +105,10 @@ def main() -> None:
                 ],
                 staging,
             )
+        if args.artifacts is not None:
+            args.artifacts.mkdir(parents=True, exist_ok=True)
+            for artifact in (wheel, sdist):
+                shutil.copy2(artifact, args.artifacts / artifact.name)
         print("wheel and sdist passed isolated installation, tests, and config smoke runs")
 
 

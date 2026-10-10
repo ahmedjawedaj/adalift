@@ -174,7 +174,9 @@ class LiFT(nn.Module):
             h0, grid = self.encode_prelude(x, condition)
             h = h0
             for index in range(1, num_loops + 1):
-                depth = torch.full((x.shape[0],), index / num_loops, device=x.device)
+                depth = torch.full(
+                    (x.shape[0],), index / num_loops, device=x.device, dtype=torch.float32
+                )
                 h = self.recurrent_step(h, h0, condition, depth, grid)
             result: torch.Tensor = self.head(h, condition, grid)
             return result
@@ -217,7 +219,9 @@ class LiFT(nn.Module):
         residual_history: list[torch.Tensor] = []
 
         for loop_idx in range(1, max_loops + 1):
-            depth = torch.full((active.numel(),), loop_idx / max_loops, device=x.device)
+            depth = torch.full(
+                (active.numel(),), loop_idx / max_loops, device=x.device, dtype=torch.float32
+            )
             candidate_h = self.recurrent_step(h, h0[active], condition[active], depth, grid)
             loops_used[active] += 1
             candidate = self.head(candidate_h, condition[active], grid)
@@ -236,7 +240,7 @@ class LiFT(nn.Module):
                     candidate_h[exiting],
                     h0[exited_rows],
                     condition[exited_rows],
-                    torch.ones(exited_rows.numel(), device=x.device),
+                    torch.ones(exited_rows.numel(), device=x.device, dtype=torch.float32),
                     grid,
                 )
                 loops_used[exited_rows] += 1

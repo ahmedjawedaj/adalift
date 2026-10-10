@@ -43,7 +43,9 @@ def sample_depth_coordinates(
     interior, _ = interior.sort(dim=1)
     offsets = torch.arange(1, k_train, device=device, dtype=torch.float64) * 1e-6
     interior = ((1 - k_train * 1e-6) * interior + offsets).float()
-    return torch.cat([interior, torch.ones(batch_size, 1, device=device)], dim=1)
+    return torch.cat(
+        [interior, torch.ones(batch_size, 1, device=device, dtype=torch.float32)], dim=1
+    )
 
 
 def build_trajectory_targets(

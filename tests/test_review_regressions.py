@@ -193,6 +193,15 @@ def test_dropout_generator_and_detached_loss_targets() -> None:
 
 
 def test_paper_depth_precision_and_spacing() -> None:
+    previous_dtype = torch.get_default_dtype()
+    try:
+        torch.set_default_dtype(torch.float64)
+        independent = sample_depth_coordinates(
+            2, 4, device=torch.device("cpu"), dtype=torch.float32
+        )
+        assert independent.dtype == torch.float32
+    finally:
+        torch.set_default_dtype(previous_dtype)
     depths = sample_depth_coordinates(
         32,
         64,
