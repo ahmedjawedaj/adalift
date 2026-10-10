@@ -45,7 +45,11 @@ def main() -> None:
                 raise RuntimeError(f"sdist missing {required}")
         for kind, artifact, test_source in (("wheel", wheel, root), ("sdist", source, source)):
             environment = workspace / f"{kind}-venv"
-            venv.EnvBuilder(with_pip=True).create(environment)
+            uv = shutil.which("uv")
+            if uv is not None:
+                run([uv, "venv", "--python", sys.executable, "--seed", str(environment)], workspace)
+            else:
+                venv.EnvBuilder(with_pip=True).create(environment)
             python = environment / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
             staging = workspace / f"{kind}-tests"
             staging.mkdir()
