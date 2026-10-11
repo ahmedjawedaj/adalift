@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security vulnerability privately
+    url: mailto:ahmed.jawed32@gmail.com
+    about: Send the affected commit and reproduction privately; do not post exploit payloads in public issues.

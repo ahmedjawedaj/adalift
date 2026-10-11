@@ -1,5 +1,8 @@
 # RC3 independent review handoff
 
+Historical review record for the RC3 source and follow-up. The first public
+release is RC4; see the changelog and GitHub release evidence for its identity.
+
 ## Artifact and scope
 
 Repository: https://github.com/ahmedjawedaj/adalift (private during review).
@@ -83,11 +86,22 @@ Table 15; its previous absence from Table 1 was not an architecture defect.
 
 ## Verification and remaining limits
 
-The independently reviewed RC2 had 66 passing CPU tests, one skipped CUDA test
+The initial independently reviewed RC2 had 66 passing CPU tests, one skipped CUDA test
 and 89.78% coverage. Local RC3 checks pass on Python 3.11/3.12 and minimum
-PyTorch 2.13.0: 80 passing CPU tests, one skipped CUDA test and 89.26% coverage,
+PyTorch 2.13.0 at the initial RC3 commit: 80 passing CPU tests, one skipped CUDA test and 89.26% coverage,
 plus Ruff, formatting, Mypy and skill sync. Its final bundle records the
-distribution and hosted CI results for the final source commit.
+distribution and hosted CI results for that source commit.
+
+The subsequent 2026-10-12 working-tree review independently reproduces the
+checkpoint follow-up: 12 failures on `a4a4cf3`, all 22 checkpoint transaction
+tests passing on the patched tree. The complete current suite has 94 passing
+CPU tests, one skipped CUDA test and 89.88% coverage on Python 3.11/3.12 with
+locked PyTorch, and Python 3.11 with minimum PyTorch 2.13.0. Wheel/sdist clean
+installation, full suites and config smoke runs also pass. The working-tree
+changes remain uncommitted; hosted CI for `a4a4cf3` does not verify them.
+Public contribution and protection status is recorded in
+[PUBLIC_RELEASE_REVIEW.md](PUBLIC_RELEASE_REVIEW.md).
+
 Commands:
 
 ```bash

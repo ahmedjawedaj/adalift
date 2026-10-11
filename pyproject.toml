@@ -5,13 +5,17 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "adalift"
 dynamic = ["version"]
-description = "Clean-room research implementation of Loop Flow Transformers with adaptive recurrent-depth extensions."
+description = "PyTorch research implementation of LiFT (Loop Flow Transformers) with adaptive recurrent depth and endpoint-preserving inference."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 authors = [{ name = "AdaLiFT Contributors" }]
-keywords = ["flow-matching", "diffusion-transformer", "recurrent-depth", "generative-models", "pytorch"]
+keywords = [
+  "pytorch", "loop-flow-transformers", "flow-matching", "diffusion-transformers",
+  "recurrent-transformers", "adaptive-computation", "adaptive-inference",
+  "test-time-compute", "generative-models", "reproducible-research",
+]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Science/Research",
