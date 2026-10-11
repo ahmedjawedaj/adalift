@@ -1,0 +1,3 @@
+# Review routing; external approvals are required by the main review ruleset.
+# The owner/admin can bypass review for PR merges; mandatory CI remains separate.
+* @ahmedjawedaj

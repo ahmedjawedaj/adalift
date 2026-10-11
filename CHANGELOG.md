@@ -1,6 +1,20 @@
 # Changelog
 
-## 0.1.0rc3 — unreleased
+## 0.1.0rc4 — 2026-10-12
+
+- First public research-alpha release, including the independently reviewed
+  checkpoint follow-up: safe module extra state, strict moment shapes, finite
+  real non-negative optimizer counters, and transactional rollback regressions.
+- New README diagrams, runnable adaptive-depth example, FAQ, contribution
+  workflow, maintainer guide, and repository discovery metadata.
+- Canonical Apache-2.0 license text, named governance/contact, code-owner
+  routing, issue/PR guidance, and publication protection payloads.
+- Dependency audits on PRs and main pushes; pinned audit tooling and checkout
+  credentials disabled. Owner/admin review bypass is separate from mandatory CI.
+- No reproduced ImageNet/FID metric, pretrained weights, production stability,
+  or adaptive quality/latency advantage is claimed.
+
+## 0.1.0rc3 — private review candidate
 
 - Smoke run records identify the Git checkout containing the installed package
   rather than the caller's working directory, and report null when the package
@@ -10,7 +24,10 @@
   caller's model, optimizer, EMA and requested RNG states unchanged.
   Return metadata is validated before application. `EMA.validate_state_dict`
   is public. Custom load hooks must avoid irreversible external side effects.
-  Factored optimizer statistics remain loadable.
+  Factored optimizer statistics remain loadable. Module extra state
+  (`get_extra_state`/`set_extra_state`) round-trips through the safe loader.
+  Known optimizer moments must match their parameter shape, scalars included,
+  and step counters must be finite, real, non-negative scalars.
 - Tests cover asymmetric EMA weighting, generator-driven class dropout,
   residual normalization, sampler callback isolation, all-or-nothing checkpoint
   loading and Git identity resolution, including malformed RNG/metadata and

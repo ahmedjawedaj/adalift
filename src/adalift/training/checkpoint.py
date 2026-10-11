@@ -4,6 +4,7 @@ import copy
 import os
 import random
 import tempfile
+from math import isfinite
 from pathlib import Path
 from typing import Any
 
@@ -184,6 +185,11 @@ def _restore_rng_state(state: dict[str, Any], generator: torch.Generator | None)
         generator.set_state(state["generator"].cpu())
 
 
+# torch.nn.modules.module._EXTRA_STATE_KEY_SUFFIX (private in PyTorch; stable since 1.10).
+_EXTRA_STATE_SUFFIX = "_extra_state"
+_MOMENTUM_KEYS = frozenset({"exp_avg", "exp_avg_sq", "max_exp_avg_sq", "momentum_buffer"})
+
+
 def _validate_model_state(model: nn.Module, loaded: Any) -> None:
     if not isinstance(loaded, dict):
         raise ValueError("model state must be a dict")
@@ -196,6 +202,13 @@ def _validate_model_state(model: nn.Module, loaded: Any) -> None:
         )
     for name, target in expected.items():
         value = loaded[name]
+        if name.endswith(_EXTRA_STATE_SUFFIX):
+            # PyTorch extra state (``get_extra_state``/``set_extra_state``) may be any
+            # value the safe loader accepts. The owning module validates it in
+            # ``set_extra_state``; a failure there is rolled back by the caller.
+            if isinstance(target, torch.Tensor) != isinstance(value, torch.Tensor):
+                raise ValueError(f"model extra state type mismatch: {name}")
+            continue
         if not isinstance(value, torch.Tensor) or tuple(value.shape) != tuple(target.shape):
             raise ValueError(f"model tensor shape mismatch: {name}")
 
@@ -218,10 +231,36 @@ def _validate_optimizer_state(optimizer: Optimizer, loaded: Any) -> None:
             if not isinstance(entry, dict):
                 raise ValueError("optimizer parameter state must be a dict")
             for key, value in entry.items():
-                if (
-                    key in {"exp_avg", "exp_avg_sq", "max_exp_avg_sq", "momentum_buffer"}
-                    and isinstance(value, torch.Tensor)
-                    and value.ndim > 0
-                    and tuple(value.shape) != tuple(parameter.shape)
-                ):
-                    raise ValueError(f"optimizer state shape mismatch: {key}")
+                if key in _MOMENTUM_KEYS:
+                    # Known per-parameter moments must match the parameter exactly,
+                    # including zero-dimensional parameters. A scalar moment for a
+                    # non-scalar parameter loads in PyTorch but fails at the next step.
+                    if not isinstance(value, torch.Tensor) or tuple(value.shape) != tuple(
+                        parameter.shape
+                    ):
+                        raise ValueError(f"optimizer state shape mismatch: {key}")
+                elif key == "step":
+                    _validate_step_counter(value)
+                # Other keys (for example Adafactor's factored row_var/col_var/variance)
+                # are optimizer-specific and are left to the optimizer to interpret.
+
+
+def _validate_step_counter(value: Any) -> None:
+    """Step counters must be finite, real, non-negative scalars.
+
+    A Python number or a one-element tensor is accepted. Boolean and complex
+    values are rejected: a Boolean tensor breaks the next optimizer step and a
+    NaN or negative counter corrupts bias correction without raising.
+    """
+    if isinstance(value, torch.Tensor):
+        if value.numel() != 1:
+            raise ValueError("optimizer step counter must be a scalar")
+        if value.dtype == torch.bool or value.is_complex():
+            raise ValueError("optimizer step counter must be a real number")
+        number = float(value.item())
+    elif isinstance(value, bool) or not isinstance(value, int | float):
+        raise ValueError("optimizer step counter must be a real number")
+    else:
+        number = float(value)
+    if not isfinite(number) or number < 0:
+        raise ValueError("optimizer step counter must be finite and non-negative")
