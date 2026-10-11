@@ -114,7 +114,7 @@ nvidia-cusparse==12.6.3.3 ; (platform_machine == 'aarch64' and sys_platform == '
     #   nvidia-cusolver
 nvidia-cusparselt-cu13==0.8.1 ; sys_platform == 'linux'
     # via torch
-nvidia-nccl-cu13==2.30.7 ; sys_platform == 'linux'
+nvidia-nccl-cu13==2.32.3 ; sys_platform == 'linux'
     # via torch
 nvidia-nvjitlink==13.4.92 ; (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')
     # via
