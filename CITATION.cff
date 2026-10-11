@@ -4,7 +4,7 @@ title: "AdaLiFT: Adaptive recurrent depth for flow transformers"
 type: software
 authors:
   - name: "AdaLiFT Contributors"
-version: 0.1.0rc2
+version: 0.1.0rc3
 license: Apache-2.0
 repository-code: "https://github.com/ahmedjawedaj/adalift"
 references:

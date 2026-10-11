@@ -86,8 +86,11 @@ core evaluations, not FLOPs or wall-clock. Samplers accept common `initial_noise
 select evaluation mode temporarily, and restore the caller's module modes.
 See [architecture](docs/ARCHITECTURE.md) for budget and residual semantics.
 
-`configs/lift_b2_r2_candidate.yaml` matches the paper's listed B/2-R2 settings;
-the smoke runner still uses synthetic data. Release review instructions and
+`configs/lift_b2_r2_candidate.yaml` records the B/2-R2 architecture and optimizer
+fields from the paper's Appendix D (width, heads, prelude and core depth, `K_train=4`,
+AdamW settings, EMA, warmup, clipping). It does not encode the paper's batch size,
+update count, data or precision, and the smoke runner still uses synthetic FP32
+data. Release review instructions and
 remaining limitations are in [REVIEW_HANDOFF.md](docs/REVIEW_HANDOFF.md).
 
 ## Project design

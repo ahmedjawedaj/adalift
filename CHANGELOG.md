@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.1.0rc3 — unreleased
+
+- Smoke run records identify the Git checkout containing the installed package
+  rather than the caller's working directory, and report null when the package
+  is not tracked by a repository.
+- `load_checkpoint` validates model, optimizer, EMA and RNG compatibility before
+  mutating any object and rolls back on failure, so a failed load leaves the
+  caller's model, optimizer, EMA and requested RNG states unchanged.
+  Return metadata is validated before application. `EMA.validate_state_dict`
+  is public. Custom load hooks must avoid irreversible external side effects.
+  Factored optimizer statistics remain loadable.
+- Tests cover asymmetric EMA weighting, generator-driven class dropout,
+  residual normalization, sampler callback isolation, all-or-nothing checkpoint
+  loading and Git identity resolution, including malformed RNG/metadata and
+  an injected late failure that exercises rollback.
+- README and paper breakdown name the exact B/2-R2 fields the candidate config
+  encodes and distinguish the 500k main protocol from the 100k ablations.
+
 ## 0.1.0rc2 — 2026-10-11
 
 - Endpoint-preserving adaptive inference with active-row compaction and honest
@@ -14,9 +32,7 @@
   real repository metadata, and expanded behavioral regressions.
 - No reproduced paper metric or adaptive quality/latency advantage is claimed.
 
-All notable changes are documented here.
-
-## [Unreleased]
+## Initial bootstrap (before release candidates)
 
 ### Added
 - Clean-room LiFT architecture and trajectory objective.

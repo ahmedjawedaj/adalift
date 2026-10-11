@@ -49,17 +49,31 @@ def read_run_config(path: Path | None) -> tuple[ModelConfig, TrainConfig, Sampli
     return model, train, sampling
 
 
-def _git_identity() -> dict[str, Any]:
-    try:
-        commit = subprocess.run(
-            ["git", "rev-parse", "HEAD"], check=True, capture_output=True, text=True
+def _git_identity(package_dir: Path | None = None) -> dict[str, Any]:
+    """Identify the Git checkout that contains this package, never the caller's cwd.
+
+    Returns null fields when the package is installed outside a repository or
+    when its containing repository does not track the package source.
+    """
+    package = (package_dir or Path(__file__).resolve().parent).resolve()
+
+    def git(*args: str) -> str:
+        return subprocess.run(
+            ["git", *args], cwd=package, check=True, capture_output=True, text=True
         ).stdout.strip()
-        status = subprocess.run(
-            ["git", "status", "--porcelain"], check=True, capture_output=True, text=True
-        ).stdout
-        return {"commit": commit, "dirty": bool(status)}
-    except (OSError, subprocess.CalledProcessError):
+
+    try:
+        toplevel = Path(git("rev-parse", "--show-toplevel")).resolve()
+        tracked = git("ls-files", "--error-unmatch", str(package / "__init__.py"))
+        if not tracked:
+            return {"commit": None, "dirty": None}
+        commit = git("rev-parse", "HEAD")
+        status = git("status", "--porcelain")
+    except (OSError, subprocess.CalledProcessError, ValueError):
         return {"commit": None, "dirty": None}
+    if package != toplevel and toplevel not in package.parents:
+        return {"commit": None, "dirty": None}
+    return {"commit": commit, "dirty": bool(status)}
 
 
 def main() -> None:

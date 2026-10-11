@@ -1,6 +1,7 @@
 # Review candidate and public release checklist
 
-- [ ] Independent review of the RC2 commit/tag and source ZIP hash.
+- [x] Independent review of the RC2 source ZIP hash and implementation.
+- [ ] RC3 follow-up commit/tag and source ZIP identity verified after cleanup.
 - [ ] GitHub CI green on Python 3.11 and 3.12, including installed distributions.
 - [ ] Minimum PyTorch 2.13 compatibility checked; dependencies audited.
 - [ ] Endpoint, heterogeneous compaction, order and actual count regressions pass.

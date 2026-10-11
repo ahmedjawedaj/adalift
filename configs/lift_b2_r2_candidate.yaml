@@ -1,5 +1,6 @@
-# Paper Appendix D, Tables 14-16: B/2 R2, K_train=4.
-# Architecture/training candidate; no ImageNet metric reproduction is claimed.
+# Paper Appendix D, Tables 14-16: B/2 R2, K_train=4 (architecture and optimizer fields).
+# Not encoded here: global batch 256, update count (500k main protocol or 100k for the
+# Appendix B ablations), ImageNet latents, BF16 compute. No metric reproduction is claimed.
 model:
   in_channels: 4
   input_size: 32

@@ -30,26 +30,40 @@ class EMA:
     def state_dict(self) -> dict[str, Any]:
         return {"decay": self.decay, "shadow": self.shadow}
 
-    def load_state_dict(self, state: dict[str, Any], model: nn.Module | None = None) -> None:
+    def _targets(self, model: nn.Module | None) -> dict[str, torch.Tensor]:
+        if model is None:
+            return self.shadow
+        return {name: param for name, param in model.named_parameters() if param.requires_grad}
+
+    def validate_state_dict(self, state: dict[str, Any], model: nn.Module | None = None) -> float:
+        """Check a saved EMA state against ``model`` without mutating anything."""
+        if not isinstance(state, dict) or "decay" not in state or "shadow" not in state:
+            raise ValueError("EMA state must contain decay and shadow")
         decay = float(state["decay"])
         if not isfinite(decay) or not 0 <= decay < 1:
             raise ValueError("EMA decay must be in [0, 1)")
         shadow = state["shadow"]
         if not isinstance(shadow, dict):
             raise TypeError("EMA shadow state must be a dict")
-        targets = (
-            self.shadow
-            if model is None
-            else {name: param for name, param in model.named_parameters() if param.requires_grad}
-        )
+        targets = self._targets(model)
         if set(shadow) != set(targets):
             raise ValueError("EMA parameter keys do not match the model")
-        loaded: dict[str, torch.Tensor] = {}
         for name, target in targets.items():
             value = shadow[name]
             if not isinstance(value, torch.Tensor) or value.shape != target.shape:
                 raise ValueError(f"EMA tensor shape mismatch: {name}")
-            loaded[name] = value.detach().to(device=target.device, dtype=target.dtype).clone()
+        return decay
+
+    def load_state_dict(self, state: dict[str, Any], model: nn.Module | None = None) -> None:
+        decay = self.validate_state_dict(state, model)
+        targets = self._targets(model)
+        loaded = {
+            name: state["shadow"][name]
+            .detach()
+            .to(device=target.device, dtype=target.dtype)
+            .clone()
+            for name, target in targets.items()
+        }
         self.decay = decay
         self.shadow = loaded
 

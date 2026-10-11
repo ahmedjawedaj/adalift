@@ -1,9 +1,9 @@
-# RC2 independent review handoff
+# RC3 independent review handoff
 
 ## Artifact and scope
 
 Repository: https://github.com/ahmedjawedaj/adalift (private during review).
-Version: 0.1.0rc2. Initial Git baseline:
+Version: 0.1.0rc3. Initial Git baseline:
 `f80ca7328b8f28bd177142f5d71728a841bd22c4`.
 RC2 is a remediation of that snapshot, not a recovered or verified RC1 ZIP.
 The audited working tree had 83 files. The first Git baseline contained only
@@ -12,7 +12,29 @@ The audited working tree had 83 files. The first Git baseline contained only
 repository root and includes both package files. The original audit manifest
 in the review bundle preserves the full starting working-tree identity.
 Review the candidate tag, archive hash and diff from the starting commit.
-The sibling `adalift-review-rc2` bundle records final commit/hash and check logs.
+The original `adalift-review-rc2` bundle is preserved. The sibling
+`adalift-review-rc3` bundle records the final RC3 commit/hash and check logs.
+
+## RC3 follow-up
+
+The supplied RC2 review found no critical, high or medium defects. It exercised
+independent adaptive, checkpoint, precision and distribution probes. Its model
+identity was configured as Sonnet 5.5; actual serving identity was not verified.
+The external fix addendum discloses a serving-model change to Fable 5.1 during
+the cleanup. This repository does not label those fixes as a Sonnet review.
+
+RC3 records the containing package's tracked Git source rather than the caller's
+cwd. Checkpoint prevalidation now covers model, known optimizer statistics,
+EMA, return metadata and requested RNG compatibility; failed application rolls
+back model, optimizer, EMA and requested RNG states. New tests cover the four
+mutation gaps and actually exercise a late failure after RNG restoration.
+Custom hooks with irreversible external effects remain outside this guarantee.
+Valid factored optimizer statistics are accepted. `ModelConfig.depth` is the
+DenseDiT block count; LiFT executes prelude_depth + K * recurrent_depth.
+
+Candidate wording covers architecture and optimizer fields, with the 500,000
+main updates distinguished from the 100,000-update ablations. No ImageNet or
+BF16 training pipeline is implied by the synthetic FP32 smoke runner.
 
 ## Changes mapped to the independent audit
 
@@ -61,10 +83,12 @@ Table 15; its previous absence from Table 1 was not an architecture defect.
 
 ## Verification and remaining limits
 
-Local Python 3.11 and 3.12 checks pass: Ruff, format, Mypy, synchronized skills,
-66 CPU tests and one explicitly skipped CUDA test, with 89.78% coverage. The
-final bundle additionally records minimum-version and distribution checks and
-the hosted CI result. Commands:
+The independently reviewed RC2 had 66 passing CPU tests, one skipped CUDA test
+and 89.78% coverage. Local RC3 checks pass on Python 3.11/3.12 and minimum
+PyTorch 2.13.0: 80 passing CPU tests, one skipped CUDA test and 89.26% coverage,
+plus Ruff, formatting, Mypy and skill sync. Its final bundle records the
+distribution and hosted CI results for the final source commit.
+Commands:
 
 ```bash
 python -m pip install -c requirements-ci.txt -e ".[dev]"

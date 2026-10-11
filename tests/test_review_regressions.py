@@ -15,6 +15,7 @@ from adalift.flow.losses import (
 )
 from adalift.flow.sampling import adaptive_euler_sample, euler_sample
 from adalift.models.dense import DenseDiT
+from adalift.models.embeddings import LabelEmbedding
 from adalift.models.lift import LiFT
 from adalift.training.checkpoint import load_checkpoint, save_checkpoint
 from adalift.training.ema import EMA
@@ -386,3 +387,115 @@ def test_checkpoint_ema_moves_cpu_state_to_cuda(tmp_path: Path) -> None:
     load_checkpoint(path, model=model, ema=ema, map_location="cpu")
     assert all(value.device.type == "cuda" for value in ema.shadow.values())
     ema.update(model)
+
+
+def test_ema_update_weighting_is_not_symmetric() -> None:
+    model = nn.Linear(1, 1, bias=False)
+    with torch.no_grad():
+        model.weight.zero_()
+    ema = EMA(model, decay=0.9)
+    with torch.no_grad():
+        model.weight.fill_(1.0)
+    ema.update(model)
+    torch.testing.assert_close(ema.shadow["weight"], torch.full((1, 1), 0.1))
+    ema.update(model)
+    torch.testing.assert_close(ema.shadow["weight"], torch.full((1, 1), 0.19))
+
+
+def test_class_dropout_follows_supplied_generator() -> None:
+    embed = LabelEmbedding(num_classes=3, hidden_size=4, dropout_prob=0.5).train()
+    labels = torch.arange(3).repeat(16)
+    first = embed(labels, generator=torch.Generator().manual_seed(1))
+    torch.manual_seed(999)
+    second = embed(labels, generator=torch.Generator().manual_seed(1))
+    third = embed(labels, generator=torch.Generator().manual_seed(2))
+    torch.testing.assert_close(first, second)
+    assert not torch.equal(first, third)
+    # The generator path must not consume the global RNG.
+    torch.manual_seed(0)
+    before = torch.rand(1)
+    torch.manual_seed(0)
+    embed(labels, generator=torch.Generator().manual_seed(3))
+    torch.testing.assert_close(torch.rand(1), before)
+
+
+def test_residual_is_normalized_by_current_prediction() -> None:
+    policy = ResidualHaltingPolicy(0.5, 1, 4, 1e-8)
+    current = torch.tensor([[3.0, 4.0], [1.0, 0.0]])
+    previous = torch.tensor([[0.0, 0.0], [1.0, 2.0]])
+    expected = torch.tensor([5.0 / 5.0, 2.0 / 1.0])
+    torch.testing.assert_close(policy.residual(current, previous), expected)
+    zero = torch.zeros(1, 2)
+    torch.testing.assert_close(
+        policy.residual(zero, torch.ones(1, 2)), torch.tensor([2**0.5 / 1e-8])
+    )
+
+
+def test_sampler_callback_receives_isolated_copy() -> None:
+    model = LiFT(config())
+    with torch.no_grad():
+        model.head.proj.weight.normal_()
+    x, _, labels = inputs()
+    seen: list[torch.Tensor] = []
+
+    def mutate(step: int, state: torch.Tensor) -> None:
+        seen.append(state.clone())
+        state.zero_()
+
+    reference = euler_sample(
+        model, tuple(x.shape), labels, num_steps=3, num_loops=2, initial_noise=x
+    )
+    observed = euler_sample(
+        model, tuple(x.shape), labels, num_steps=3, num_loops=2, initial_noise=x, callback=mutate
+    )
+    torch.testing.assert_close(observed, reference)
+    assert len(seen) == 3
+    torch.testing.assert_close(seen[-1], reference)
+
+
+def test_load_checkpoint_is_all_or_nothing(tmp_path: Path) -> None:
+    saved_model = nn.Linear(2, 2)
+    saved_ema = EMA(saved_model, 0.5)
+    path = tmp_path / "state.pt"
+    save_checkpoint(path, model=saved_model, ema=saved_ema)
+
+    target = nn.Linear(2, 2)
+    before = {name: value.clone() for name, value in target.state_dict().items()}
+    # Corrupt the saved EMA so it no longer matches the model while the model state does.
+    state = torch.load(path, weights_only=True)
+    state["ema"]["shadow"] = EMA(nn.Linear(3, 3)).shadow
+    torch.save(state, path)
+    ema = EMA(target, 0.9)
+    ema_before = {name: value.clone() for name, value in ema.shadow.items()}
+    with pytest.raises(ValueError, match="EMA"):
+        load_checkpoint(path, model=target, ema=ema)
+    for name, value in target.state_dict().items():
+        torch.testing.assert_close(value, before[name])
+    assert ema.decay == 0.9
+    for name, value in ema.shadow.items():
+        torch.testing.assert_close(value, ema_before[name])
+
+    wrong_shape = nn.Linear(3, 3)
+    with pytest.raises(ValueError, match="model"):
+        load_checkpoint(path, model=wrong_shape)
+
+    state = torch.load(path, weights_only=True)
+    state["ema"] = saved_ema.state_dict()
+    other = nn.Linear(5, 5)
+    stale = torch.optim.AdamW(other.parameters(), lr=0.01)
+    other(torch.ones(1, 5)).sum().backward()
+    stale.step()
+    state["optimizer"] = stale.state_dict()
+    torch.save(state, path)
+    optimizer = torch.optim.AdamW(target.parameters(), lr=0.5)
+    with pytest.raises(ValueError, match="optimizer"):
+        load_checkpoint(path, model=target, optimizer=optimizer)
+    assert optimizer.param_groups[0]["lr"] == 0.5
+    for name, value in target.state_dict().items():
+        torch.testing.assert_close(value, before[name])
+    state["optimizer"] = torch.optim.AdamW(
+        nn.Sequential(nn.Linear(2, 2), nn.Linear(2, 2)).parameters()
+    ).state_dict()
+    torch.save(state, path)
+    with pytest.raises(ValueError, match="optimizer"):
+        load_checkpoint(path, model=target, optimizer=optimizer)

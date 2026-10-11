@@ -14,7 +14,7 @@ class ModelConfig:
     input_size: int = 32
     patch_size: int = 2
     hidden_size: int = 768
-    depth: int = 12
+    depth: int = 12  # DenseDiT block count; LiFT uses prelude_depth + K * recurrent_depth.
     prelude_depth: int = 4
     recurrent_depth: int = 2
     num_heads: int = 12
